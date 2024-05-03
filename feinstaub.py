@@ -112,6 +112,12 @@ def give_csv_data(file_name):
   temps = list(read_csv(file_name))
   return {'max': max(temps), 'min': min(temps), 'avg': (sum(temps) / len(temps)), 'diff': (max(temps) - min(temps))}
 
+def insert_csv_into_sqlite():
+  conn = sqlite3.connect('sensordaten.db')
+  cursor = conn.cursor()
+  cursor.execute('CREATE TABLE sensordaten (sensordaten_id INTEGER PRIMARY KEY AUTOINCREMENT, sensor_id INTEGER, sensor_type TEXT, location INTEGER, lat REAL, lon REAL, timestamp DATETIME, temperature REAL, humidity REAL)')
+  cursor.execute('INSERT INTO sensordaten (sensor_id) VALUES (1234)')
+  conn.commit()
 
 #temps = give_csv_data("2021-04-26_dht22_sensor_3660.csv")
 #print(f"max:  {temps['max']:>6}°c\nmin:  {temps['min']:>6}°c\navg:  {temps['avg']:>6.2f}°c\ndiff: {temps['diff']:>6.2f}°c")
@@ -124,6 +130,9 @@ tkFenster.geometry('400x300')
 
 # Funktion für den Button, die eine Datei öffnet und den Dateinamen in das Label schreibt
 def button_pressed():
+    insert_csv_into_sqlite()
+    exit
+
     file = fd.askopenfilename()
     test_label.configure(text=file)
 
