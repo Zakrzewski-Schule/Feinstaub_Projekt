@@ -7,7 +7,7 @@ from csv import DictReader
 #from tkinter import Tk, Label, Button, filedialog as fd
 from tkinter import *
 from tkinter import filedialog as fd
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 
 def cls():
