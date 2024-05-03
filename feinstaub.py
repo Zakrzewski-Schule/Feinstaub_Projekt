@@ -1,19 +1,3 @@
-""" def generate_download_urls_2(a_sensor_type, a_sensor_id, a_start, a_end):
-  url_list = []
-  ts_start = int(datetime(a_start[2],a_start[1], a_start[0]).timestamp())
-  ts_end = int(datetime(a_end[2],a_end[1], a_end[0]).timestamp())
-
-  for ts_day in range(ts_start, ts_end + 86400, 86400):
-    date = datetime.fromtimestamp(ts_day)
-    folder_url = f'http://archive.sensor.community/{f"{date.year}/" if date.year != datetime.today().year else ""}{date:%Y-%m-%d}'
-    file_url = f'{date:%Y-%m-%d}_{a_sensor_type.lower()}_sensor_{a_sensor_id}'
-    url_list.append(f'{folder_url}/{file_url}.csv')
-  return url_list
-
-x0 = datetime.now()
-print(f'{x0:%h}')
- """
-
 import os
 import gzip
 import shutil
