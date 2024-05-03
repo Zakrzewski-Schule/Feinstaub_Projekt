@@ -36,38 +36,6 @@ class HeadRequest(urllib2.Request):
     return 'HEAD'
   
 
-class Animal():
-  Name: str
-  Shoulder_Height: float
-  Cry: str
-
-  def Say_Name(self):
-    print(f'{self.Cry}! my name is {self.Name}')
-
-  def Say_Species(self):
-    print(f'{self.Cry}! I am a {type(self).__name__}')
-
-class Dog(Animal):
-  Cry = 'woof'
-
-class Cat(Animal):
-  Cry = 'meow'
-
-
-# an1 = Dog()
-# an1.Name = 'fritz'
-# an1.Say_Name()
-# an1.Say_Species()
-
-# an2 = Cat()
-# an2.Name = 'maja'
-# an2.Say_Name()
-# an2.Say_Species()
-
-#exit()
-
-  
-
 days_in_months = [31,28,31,30,31,30,31,31,30,31,30,31]
 is_leap_year = lambda year : (year % 400 == 0 and year % 100 == 0) or (year % 4 == 0 and year % 100 != 0)
 get_days_in_month = lambda month,year : (29 if is_leap_year(year) else 28) if month == 2 else days_in_months[month - 1]
