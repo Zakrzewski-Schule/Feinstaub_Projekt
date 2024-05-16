@@ -2,10 +2,16 @@ import os
 import gzip
 import shutil
 import urllib.request as urllib2
+import pandas as pd
+import numpy as np
+import matplotlib as mat
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from datetime import datetime
 from csv import DictReader
 #from tkinter import Tk, Label, Button, filedialog as fd
 from tkinter import *
+from tkinter import ttk
 from tkinter import filedialog as fd
 import matplotlib.pyplot as plt
 
@@ -115,34 +121,34 @@ def give_csv_data(file_name):
 #temps = give_csv_data("2021-04-26_dht22_sensor_3660.csv")
 #print(f"max:  {temps['max']:>6}°c\nmin:  {temps['min']:>6}°c\navg:  {temps['avg']:>6.2f}°c\ndiff: {temps['diff']:>6.2f}°c")
 
+def listSelected(event):
+  print(lbox.get(lbox.curselection()))
 
 # Erzeugung des Fensters
 tkFenster = Tk()
-tkFenster.title('tkinter Testprogramm')
-tkFenster.geometry('400x300')
+content = ttk.Frame(tkFenster)
+frame = ttk.Frame(content)
+tkFenster.title('Feinstaub Projekt')
+tkFenster.geometry()
 
-# Funktion für den Button, die eine Datei öffnet und den Dateinamen in das Label schreibt
-def button_pressed():
-    file = fd.askopenfilename()
-    test_label.configure(text=file)
+lboxvar = StringVar(value=["test1","test2","test3"])
+lbox = Listbox(tkFenster,listvariable=lboxvar,height=10,selectmode="extended")
 
-    temps = give_csv_data(file)
-    csv_label.configure(text= f"max:  {temps['max']:>6}°c\nmin:  {temps['min']:>6}°c\navg:  {temps['avg']:>6.2f}°c\ndiff: {temps['diff']:>6.2f}°c")
+lbox.bind('<<ListboxSelect>>',listSelected)
 
-    plt.plot(list(read_csv(file)))
-    plt.ylabel('Temperator in °c')
-    plt.show()
+#csv = pd.read_csv('')
 
-# Label für die Anzeige von Text
-test_label = Label(master=tkFenster, text='keine Datei ausgewählt')
-test_label.place(x=5, y=5, width=300, height=20)
+bar = pd.DataFrame({'length': [1.5,0.5,1.2,0,93],
+                    'width': [0.7,0.2,0.15,0.2,1.1]},
+                    index=['pig','rabbit','duck','chicken','horse'])
 
-csv_label = Label(master=tkFenster, text='')
-csv_label.place(x=5, y=40, width=300, height=300)
+plot = bar.plot(kind="bar", title="Feinstaub",figsize=(3,3)).get_figure();
 
-# Button der die Funktion button_pressed() aufruft
-test_button = Button(master=tkFenster, text='Test', command=button_pressed)
-test_button.place(x=5, y=30, width=120, height=20)
+canvas = FigureCanvasTkAgg(plot, tkFenster)
+
+canvas.get_tk_widget().grid(row=0, column=1)
+
+lbox.grid(row=0, column=0)
 
 # Aktivierung des Fensters
 tkFenster.mainloop()
