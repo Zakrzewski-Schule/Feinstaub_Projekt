@@ -156,8 +156,8 @@ def fetch_csv_from_db(csv_lines : list[Sensor_Data]):
     conn = sqlite3.connect('sensordaten.db')
     cursor = conn.cursor()
     # check if table exists
-    cursor.execute(f'SELECT name FROM sqlite_master WHERE name=\'sensordaten\';')
-    if cursor.arraysize > 0:
+    listOfTables = cursor.execute(f'SELECT name FROM sqlite_master WHERE type=\'table\' AND name=\'sensordaten\';').fetchall()
+    if listOfTables != []:
       cursor.execute(f'''SELECT * FROM sensordaten sd 
                          WHERE sd.sensor_id == {csv_line.sensor_id} 
                          AND sd.sensor_type == \'{csv_line.sensor_type}\' 
