@@ -213,14 +213,14 @@ lboxvar = StringVar(value=["test1","test2","test3"])
 lbox = Listbox(tkFenster,listvariable=lboxvar,height=10,selectmode="extended")
 
 lbox.bind('<<ListboxSelect>>',listSelected)
-
-#csv = pd.read_csv('')
+llist = []
+csv = pd.read_csv(fetch_csv_from_db(llist))
 
 bar = pd.DataFrame({'length': [1.5,0.5,1.2,0,93],
                     'width': [0.7,0.2,0.15,0.2,1.1]},
                     index=['pig','rabbit','duck','chicken','horse'])
 
-plot = bar.plot(kind="bar", title="Feinstaub",figsize=(3,3)).get_figure();
+plot = csv.plot(kind="bar", title="Feinstaub",figsize=(3,3)).get_figure();
 
 canvas = FigureCanvasTkAgg(plot, tkFenster)
 
