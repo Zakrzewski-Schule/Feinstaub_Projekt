@@ -13,11 +13,8 @@ from csv import DictReader
 from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog as fd
-<<<<<<< HEAD
-=======
-import sqlite3
->>>>>>> 28c4891fa98c749f38ecd59c5406e37103b0eff2
 import matplotlib.pyplot as plt
+import sqlite3
 
 
 def cls():
@@ -161,9 +158,10 @@ def insert_csv_into_db(csv_lines : list[Sensor_Data]):
   conn.close()
 
 def fetch_csv_from_db(csv_lines : list[Sensor_Data]):
+    condition=''
     if csv_lines != []:
       csv_line = csv_lines[0]
-      condition = ''' WHERE sd.sensor_id == {csv_line.sensor_id} 
+      condition = f''' WHERE sd.sensor_id == {csv_line.sensor_id} 
                       AND sd.sensor_type == \'{csv_line.sensor_type}\' 
                       AND DATE(sd.timestamp) LIKE \'{csv_line.timestamp.date()}\''''
       
@@ -172,7 +170,7 @@ def fetch_csv_from_db(csv_lines : list[Sensor_Data]):
     # check if table exists
     listOfTables = cursor.execute(f'SELECT name FROM sqlite_master WHERE type=\'table\' AND name=\'sensordaten\';').fetchall()
     if listOfTables != []:
-      cursor.execute(f'SELECT * FROM sensordaten sd{condition};''')
+      cursor.execute(f'SELECT * FROM sensordaten sd{condition};')
       csv_lines = cursor.fetchall()
       conn.close() 
       return True
@@ -198,7 +196,7 @@ def give_csv_data(file_name) -> Sensor_Data_List:
   return data_list
 
 
-#temps = give_csv_data("2021-04-26_dht22_sensor_3660.csv")
+temps = give_csv_data("2021-04-26_dht22_sensor_3660.csv")
 #print(f"max:  {temps['max']:>6}°c\nmin:  {temps['min']:>6}°c\navg:  {temps['avg']:>6.2f}°c\ndiff: {temps['diff']:>6.2f}°c")
 
 def listSelected(event):
@@ -216,13 +214,15 @@ lbox = Listbox(tkFenster,listvariable=lboxvar,height=10,selectmode="extended")
 
 lbox.bind('<<ListboxSelect>>',listSelected)
 llist = []
-csv = pd.read_csv(fetch_csv_from_db(llist))
+fetch_csv_from_db(llist)
+ser = pd.Series(data=Sensor_Data_List(llist), index=['temperature']).tolist()
+#csv = pd.read_csv(fetch_csv_from_db(llist))
 
 bar = pd.DataFrame({'length': [1.5,0.5,1.2,0,93],
                     'width': [0.7,0.2,0.15,0.2,1.1]},
                     index=['pig','rabbit','duck','chicken','horse'])
 
-plot = csv.plot(kind="bar", title="Feinstaub",figsize=(3,3)).get_figure();
+plot = ser.plot(kind="bar", title="Feinstaub",figsize=(3,3)).get_figure();
 
 canvas = FigureCanvasTkAgg(plot, tkFenster)
 
