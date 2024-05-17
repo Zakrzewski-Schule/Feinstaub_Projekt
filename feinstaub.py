@@ -152,16 +152,18 @@ def insert_csv_into_db(csv_lines : list[Sensor_Data]):
   conn.close()
 
 def fetch_csv_from_db(csv_lines : list[Sensor_Data]):
-    csv_line = csv_lines[0]
+    if csv_lines != []:
+      csv_line = csv_lines[0]
+      condition = ''' WHERE sd.sensor_id == {csv_line.sensor_id} 
+                      AND sd.sensor_type == \'{csv_line.sensor_type}\' 
+                      AND DATE(sd.timestamp) LIKE \'{csv_line.timestamp.date()}\''''
+      
     conn = sqlite3.connect('sensordaten.db')
     cursor = conn.cursor()
     # check if table exists
     listOfTables = cursor.execute(f'SELECT name FROM sqlite_master WHERE type=\'table\' AND name=\'sensordaten\';').fetchall()
     if listOfTables != []:
-      cursor.execute(f'''SELECT * FROM sensordaten sd 
-                         WHERE sd.sensor_id == {csv_line.sensor_id} 
-                         AND sd.sensor_type == \'{csv_line.sensor_type}\' 
-                         AND DATE(sd.timestamp) LIKE \'{csv_line.timestamp.date()}\';''')
+      cursor.execute(f'SELECT * FROM sensordaten sd{condition};''')
       csv_lines = cursor.fetchall()
       conn.close() 
       return True
