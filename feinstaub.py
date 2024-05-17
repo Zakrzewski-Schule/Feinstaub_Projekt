@@ -13,6 +13,10 @@ from csv import DictReader
 from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog as fd
+<<<<<<< HEAD
+=======
+import sqlite3
+>>>>>>> 28c4891fa98c749f38ecd59c5406e37103b0eff2
 import matplotlib.pyplot as plt
 
 
@@ -100,22 +104,96 @@ def check_url_exists(url):
 
 
 
+class Sensor_Data:
+  def __init__(self):
+    self.sensor_id = ''
+    self.sensor_type = ''
+    self.location = 0
+    self.lat = 0.0
+    self.lon = 0.0
+    self.timestamp = datetime.min
+    self.temperature = 0.0
+    self.humidity = 0.0
+
+  def assign(self, csv):
+    self.sensor_id = csv['sensor_id']
+    self.sensor_type = csv['sensor_type']
+    self.location = int(csv['location'])
+    self.lat = float(csv['lat'])
+    self.lon = float(csv['lon'])
+    self.timestamp = datetime.fromisoformat(csv['timestamp'])
+    self.temperature = float(csv['temperature'])
+    self.humidity = float(csv['humidity'])
+    return self
+  
+class Sensor_Data_List(list[Sensor_Data]):
+  def __init__(self, iterable):
+    self.min = 0.0
+    self.max = 0.0
+    self.avg = 0.0
+    self.diff = 0.0
+    super().__init__(item for item in iterable)
+
+  def __setitem__(self, index, item):
+      super().__setitem__(index, item)
+  
+  def assign_calculated(self):
+    temps = list(map(lambda x: x.temperature, self))
+    self.min = min(temps)
+    self.max = max(temps)
+    self.avg = (sum(temps) / len(temps))
+    self.diff = (max(temps) - min(temps))
 
 
 
 
 
-def read_csv(file_name):
+def insert_csv_into_db(csv_lines : list[Sensor_Data]):
+  conn = sqlite3.connect('sensordaten.db')
+  cursor = conn.cursor()
+  cursor.execute('''CREATE TABLE IF NOT EXISTS sensordaten (sensordaten_id INTEGER PRIMARY KEY AUTOINCREMENT, sensor_id INTEGER, 
+                    sensor_type TEXT, location INTEGER, lat REAL, lon REAL, timestamp DATETIME, temperature REAL, humidity REAL);''')
+  
+  for line in csv_lines:
+    cursor.execute(f'''INSERT INTO sensordaten (sensor_id, sensor_type, location, lat, lon, timestamp, temperature, humidity) VALUES
+                    ({line.sensor_id}, \'{line.sensor_type}\', {line.location}, {line.lat}, {line.lon}, \'{line.timestamp}\', {line.temperature}, {line.humidity})''')
+  conn.commit()
+  conn.close()
+
+def fetch_csv_from_db(csv_lines : list[Sensor_Data]):
+    csv_line = csv_lines[0]
+    conn = sqlite3.connect('sensordaten.db')
+    cursor = conn.cursor()
+    # check if table exists
+    cursor.execute(f'SELECT name FROM sqlite_master WHERE name=\'sensordaten\';')
+    if cursor.arraysize > 0:
+      cursor.execute(f'''SELECT * FROM sensordaten sd 
+                         WHERE sd.sensor_id == {csv_line.sensor_id} 
+                         AND sd.sensor_type == \'{csv_line.sensor_type}\' 
+                         AND DATE(sd.timestamp) LIKE \'{csv_line.timestamp.date()}\';''')
+      csv_lines = cursor.fetchall()
+      conn.close() 
+      return True
+    else:
+      conn.close()
+      return False
+
+def read_csv(file_name : str):
   data = DictReader(open(file_name), delimiter=";")
   print(f'{data.line_num:>5}: {data.fieldnames}\n')
 
   for line in data:
     print(f"{(data.line_num-1):>5}: {line['timestamp']} {line['temperature']:>6}°c")
-    yield float(line['temperature'])
+    yield Sensor_Data().assign(line)
 
-def give_csv_data(file_name):
-  temps = list(read_csv(file_name))
-  return {'max': max(temps), 'min': min(temps), 'avg': (sum(temps) / len(temps)), 'diff': (max(temps) - min(temps))}
+def give_csv_data(file_name) -> Sensor_Data_List:
+  data_list = Sensor_Data_List(read_csv(file_name))
+  # check if already exist in db
+  if not fetch_csv_from_db(data_list):
+    insert_csv_into_db(data_list)
+  temps = list(map(lambda x: x.temperature, data_list))
+  data_list.assign_calculated()
+  return data_list
 
 
 #temps = give_csv_data("2021-04-26_dht22_sensor_3660.csv")
