@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D, lineStyles
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk) 
+from Sensor_data import (Sensor_Data, Sensor_Temperature_Data, Sensor_Temperature_Data_List)
 
 
 def cls():
@@ -96,56 +97,7 @@ def check_url_exists(url):
 
 
 
-
-class Sensor_Data:
-  def __init__(self):
-    self.sensor_id = ''
-    self.sensor_type = ''
-    self.location = 0
-    self.lat = 0.0
-    self.lon = 0.0
-    self.timestamp = datetime.min
-    self.temperature = 0.0
-    self.humidity = 0.0
-
-  def assign(self, csv):
-    self.sensor_id = csv['sensor_id']
-    self.sensor_type = csv['sensor_type']
-    self.location = int(csv['location'])
-    self.lat = float(csv['lat'])
-    self.lon = float(csv['lon'])
-    self.timestamp = datetime.fromisoformat(csv['timestamp'])
-    self.temperature = float(csv['temperature'])
-    self.humidity = float(csv['humidity'])
-    return self
-  
-class Sensor_Data_List(list[Sensor_Data]):
-  def __init__(self, iterable):
-    self.min = 0.0
-    self.max = 0.0
-    self.avg = 0.0
-    self.diff = 0.0
-    self.min_index = 0
-    self.max_index = 0
-    super().__init__(item for item in iterable)
-
-  def __setitem__(self, index, item):
-      super().__setitem__(index, item)
-  
-  def assign_calculated(self):
-    temps = list(map(lambda x: x.temperature, self))
-    self.min = min(temps)
-    self.max = max(temps)
-    self.avg = (sum(temps) / len(temps))
-    self.diff = (max(temps) - min(temps))
-    self.min_index = temps.index(self.min)
-    self.max_index = temps.index(self.max)
-
-
-
-
-
-def insert_csv_into_db(csv_lines : list[Sensor_Data]):
+def insert_csv_into_db(csv_lines : list[Sensor_Temperature_Data]):
   conn = sqlite3.connect('sensordaten.db')
   cursor = conn.cursor()
   cursor.execute('''CREATE TABLE IF NOT EXISTS sensordaten (sensordaten_id INTEGER PRIMARY KEY AUTOINCREMENT, sensor_id INTEGER, 
@@ -157,7 +109,7 @@ def insert_csv_into_db(csv_lines : list[Sensor_Data]):
   conn.commit()
   conn.close()
 
-def fetch_csv_from_db(csv_lines : list[Sensor_Data]):
+def fetch_csv_from_db(csv_lines : list[Sensor_Temperature_Data]):
     condition = ''
     if csv_lines != []:
       csv_line = csv_lines[0]
@@ -184,10 +136,10 @@ def read_csv(file_name : str):
 
   for line in data:
     print(f"{(data.line_num-1):>5}: {line['timestamp']} {line['temperature']:>6}°c")
-    yield Sensor_Data().assign(line)
+    yield Sensor_Temperature_Data().assign(line)
 
-def give_csv_data(file_name) -> Sensor_Data_List:
-  data_list = Sensor_Data_List(read_csv(file_name))
+def give_csv_data(file_name) -> list[Sensor_Temperature_Data]:
+  data_list = Sensor_Temperature_Data_List(read_csv(file_name))
   # check if already exist in db
   if not fetch_csv_from_db(data_list):
     insert_csv_into_db(data_list)
@@ -200,6 +152,15 @@ def give_csv_data(file_name) -> Sensor_Data_List:
 tkFenster = Tk()
 tkFenster.title('Feinstaubprojekt')
 tkFenster.geometry('650x550')
+
+# Funktion für den Button, die eine CSV Datei runterlädt
+def button_download_pressed():
+  start_str = txtDateStart.get('1.0', END+"-1c")
+  (dt_s_d, dt_s_m, dt_s_y) = start_str.split('.')
+  end_str = txtDateEnd.get('1.0', END+"-1c")
+  (dt_e_d, dt_e_m, dt_e_y) = end_str.split('.')
+  generate_download_urls('dht22', 3660, [int(dt_s_d), int(dt_s_m), int(dt_s_y)], [int(dt_e_d), int(dt_e_m), int(dt_e_y)])
+  pass
 
 # Funktion für den Button, die eine Datei öffnet und den Dateinamen in das Label schreibt
 def button_pressed():
@@ -216,6 +177,7 @@ Differenz:         {temps.diff:>6.2f}°c''')
 
   fig = Figure(figsize = (5, 5), dpi=90)
   plot1 = fig.add_subplot()
+  plot1.set_xticklabels(list(map(lambda t: t.timestamp.strftime('%H:%M'), temps)))
   plot1.set_ylabel('Temperatur in °c')
   if datumStart != datumEnd:
     plot1.set_title(f'Feinstaubwerte im Zeitraum {datumStart} bis {datumEnd}')
@@ -260,11 +222,24 @@ lblFilename = Label(master=tkFenster, text='keine Datei ausgewählt')
 lblFilename.place(x=5, y=5, height=20)
 
 lblCSV = Label(master=tkFenster, text='', justify='left')
-lblCSV.place(x=5, y=60)
+lblCSV.place(x=5, y=150)
 
 # Button der die Funktion button_pressed() aufruft
 btnOpenFile = Button(master=tkFenster, text='Datei auswählen', command=button_pressed)
 btnOpenFile.place(x=5, y=30, height=20)
+
+lblDateStart = Label(master=tkFenster, text='Startdatum:', justify='left')
+lblDateStart.place(x=5, y = 50)
+lblDateEnd = Label(master=tkFenster, text='Enddatum:', justify='left')
+lblDateEnd.place(x=5, y = 70)
+
+txtDateStart = Text()
+txtDateStart.place(x=110, y=50, width=100,height=20)
+txtDateEnd = Text()
+txtDateEnd.place(x=110, y=70, width=100,height=20)
+
+btnDownloadCSV = Button(master=tkFenster, text='CSV runterladen', command=button_download_pressed)
+btnDownloadCSV.place(x=5, y=90, height=20)
 
 # Aktivierung des Fensters
 tkFenster.mainloop()
