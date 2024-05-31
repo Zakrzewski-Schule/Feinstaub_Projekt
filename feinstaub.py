@@ -228,8 +228,6 @@ Differenz:         {temps.diff:>6.2f}°c''')
   else:
     plot1.set_title(f'Feinstaubwerte am {datumStart}')
 
-  #line1 = Line2D(linestyle=lineStyles['dashed'], )
-  #plot1.add_line(line1)
   max_x = temps.max_index
   max_y = temps.max
   min_x = temps.min_index
@@ -252,7 +250,7 @@ Differenz:         {temps.diff:>6.2f}°c''')
   plot1.plot(list(map(lambda x: x.temperature, temps)))
 
   # creating the Tkinter canvas containing the Matplotlib figure 
-  canvas = FigureCanvasTkAgg(fig, master = tkFenster) 
+  canvas = FigureCanvasTkAgg(fig, master=tkFenster) 
   canvas.draw() 
   canvas.get_tk_widget().pack() 
 
