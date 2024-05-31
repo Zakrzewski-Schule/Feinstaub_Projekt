@@ -8,7 +8,11 @@ from csv import DictReader
 from tkinter import *
 from tkinter import filedialog as fd
 import sqlite3
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.lines import Line2D, lineStyles
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
+NavigationToolbar2Tk) 
 
 
 def cls():
@@ -123,6 +127,8 @@ class Sensor_Data_List(list[Sensor_Data]):
     self.max = 0.0
     self.avg = 0.0
     self.diff = 0.0
+    self.min_index = 0
+    self.max_index = 0
     super().__init__(item for item in iterable)
 
   def __setitem__(self, index, item):
@@ -134,6 +140,8 @@ class Sensor_Data_List(list[Sensor_Data]):
     self.max = max(temps)
     self.avg = (sum(temps) / len(temps))
     self.diff = (max(temps) - min(temps))
+    self.min_index = temps.index(self.min)
+    self.max_index = temps.index(self.max)
 
 
 
@@ -185,7 +193,6 @@ def give_csv_data(file_name) -> Sensor_Data_List:
   # check if already exist in db
   if not fetch_csv_from_db(data_list):
     insert_csv_into_db(data_list)
-  temps = list(map(lambda x: x.temperature, data_list))
   data_list.assign_calculated()
   return data_list
 
@@ -196,31 +203,76 @@ def give_csv_data(file_name) -> Sensor_Data_List:
 
 # Erzeugung des Fensters
 tkFenster = Tk()
-tkFenster.title('tkinter Testprogramm')
-tkFenster.geometry('400x300')
+tkFenster.title('Feinstaubprojekt')
+tkFenster.geometry('650x550')
 
 # Funktion für den Button, die eine Datei öffnet und den Dateinamen in das Label schreibt
 def button_pressed():
-    file = fd.askopenfilename()
-    test_label.configure(text=file)
+  file = fd.askopenfilename()
+  lblFilename.configure(text=file)
 
-    temps = give_csv_data(file)
-    csv_label.configure(text= f"max:  {temps.max:>6}°c\nmin:  {temps.min:>6}°c\navg:  {temps.avg:>6.2f}°c\ndiff: {temps.diff:>6.2f}°c")
+  temps = give_csv_data(file)
+  lblCSV.configure(text= f'''Höchsttemp.:    {temps.max:>6}°c
+Mindesttemp.:   {temps.min:>6}°c
+Durchschnitt:   {temps.avg:>6.2f}°c
+Differenz:         {temps.diff:>6.2f}°c''')
+  datumStart = temps[0].timestamp.strftime('%d.%m.%Y')
+  datumEnd = temps[-1].timestamp.strftime('%d.%m.%Y')
 
-    plt.plot(list(map(lambda x: x.temperature, temps)))
-    plt.ylabel('Temperator in °c')
-    plt.show()
+  fig = Figure(figsize = (5, 5), dpi=90)
+  # adding the subplot 
+  plot1 = fig.add_subplot()
+  plot1.set_ylabel('Temperatur in °c')
+  if datumStart != datumEnd:
+    plot1.set_title(f'Feinstaubwerte im Zeitraum {datumStart} bis {datumEnd}')
+  else:
+    plot1.set_title(f'Feinstaubwerte am {datumStart}')
+
+  #line1 = Line2D(linestyle=lineStyles['dashed'], )
+  #plot1.add_line(line1)
+  max_x = temps.max_index
+  max_y = temps.max
+  min_x = temps.min_index
+  min_y = temps.min
+  plot1.plot(min_x,min_y,'o')
+  plot1.plot(max_x,max_y,'o')
+  if max_x > 300: 
+    plot1.hlines(y=max_y, xmin=0, xmax=max_x, linestyles='dashed')
+    plot1.text(0, max_y+0.1, f'{temps.max}°c', style='italic')
+  else:
+    plot1.hlines(y=max_y, xmin=max_x, xmax=600, linestyles='dashed')
+    plot1.text(520, max_y+0.1, f'{temps.max}°c', style='italic')
+  if min_x > 300: 
+    plot1.hlines(y=min_y, xmin=0, xmax=min_x, linestyles='dashed')
+    plot1.text(0, min_y+0.1, f'{temps.min}°c', style='italic')
+  else:
+    plot1.hlines(y=min_y, xmin=min_x, xmax=600, linestyles='dashed')
+    plot1.text(520, min_y+0.1, f'{temps.min}°c', style='italic')
+
+  plot1.plot(list(map(lambda x: x.temperature, temps)))
+
+  # creating the Tkinter canvas containing the Matplotlib figure 
+  canvas = FigureCanvasTkAgg(fig, master = tkFenster) 
+  canvas.draw() 
+  canvas.get_tk_widget().pack() 
+
+  # creating the Matplotlib toolbar 
+  toolbar = NavigationToolbar2Tk(canvas, tkFenster) 
+  toolbar.update() 
+  canvas.get_tk_widget().pack(side='bottom', after=toolbar,anchor='e',padx=5)
+
+
 
 # Label für die Anzeige von Text
-test_label = Label(master=tkFenster, text='keine Datei ausgewählt')
-test_label.place(x=5, y=5, width=300, height=20)
+lblFilename = Label(master=tkFenster, text='keine Datei ausgewählt')
+lblFilename.place(x=5, y=5, height=20)
 
-csv_label = Label(master=tkFenster, text='')
-csv_label.place(x=5, y=40, width=300, height=300)
+lblCSV = Label(master=tkFenster, text='', justify='left')
+lblCSV.place(x=5, y=60)
 
 # Button der die Funktion button_pressed() aufruft
-test_button = Button(master=tkFenster, text='Test', command=button_pressed)
-test_button.place(x=5, y=30, width=120, height=20)
+btnOpenFile = Button(master=tkFenster, text='Datei auswählen', command=button_pressed)
+btnOpenFile.place(x=5, y=30, height=20)
 
 # Aktivierung des Fensters
 tkFenster.mainloop()
