@@ -4,15 +4,13 @@ import shutil
 import urllib.request as urllib2
 from datetime import datetime
 from csv import DictReader
-#from tkinter import Tk, Label, Button, filedialog as fd
 from tkinter import *
 from tkinter import filedialog as fd
 import sqlite3
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D, lineStyles
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
-NavigationToolbar2Tk) 
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk) 
 
 
 def cls():
@@ -197,9 +195,6 @@ def give_csv_data(file_name) -> Sensor_Data_List:
   return data_list
 
 
-#temps = give_csv_data("2021-04-26_dht22_sensor_3660.csv")
-#print(f"max:  {temps['max']:>6}°c\nmin:  {temps['min']:>6}°c\navg:  {temps['avg']:>6.2f}°c\ndiff: {temps['diff']:>6.2f}°c")
-
 
 # Erzeugung des Fensters
 tkFenster = Tk()
@@ -209,9 +204,9 @@ tkFenster.geometry('650x550')
 # Funktion für den Button, die eine Datei öffnet und den Dateinamen in das Label schreibt
 def button_pressed():
   file = fd.askopenfilename()
-  lblFilename.configure(text=file)
-
   temps = give_csv_data(file)
+
+  lblFilename.configure(text=file)
   lblCSV.configure(text= f'''Höchsttemp.:    {temps.max:>6}°c
 Mindesttemp.:   {temps.min:>6}°c
 Durchschnitt:   {temps.avg:>6.2f}°c
@@ -220,7 +215,6 @@ Differenz:         {temps.diff:>6.2f}°c''')
   datumEnd = temps[-1].timestamp.strftime('%d.%m.%Y')
 
   fig = Figure(figsize = (5, 5), dpi=90)
-  # adding the subplot 
   plot1 = fig.add_subplot()
   plot1.set_ylabel('Temperatur in °c')
   if datumStart != datumEnd:
