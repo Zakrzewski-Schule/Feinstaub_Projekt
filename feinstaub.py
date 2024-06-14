@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D, lineStyles
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk) 
-from Sensor_data import (Sensor_Data, Sensor_Temperature_Data, Sensor_Temperature_Data_List, Sensor_Feinstaub_Data, Sensor_Feinstaub_Data_List)
+from Sensor_data import (Sensor_Data, Sensor_Temperature_Data, Sensor_Feinstaub_Data, Sensor_Data_List, Sensor_Temperature_Data_List, Sensor_Feinstaub_Data_List)
 
 
 def cls():
@@ -107,19 +107,29 @@ def download_file(url):
 
 
 
-def insert_csv_into_db(csv_lines : list[Sensor_Temperature_Data]):
+def insert_csv_into_db(csv_lines : Sensor_Data_List):
   conn = sqlite3.connect('sensordaten.db')
   cursor = conn.cursor()
-  cursor.execute('''CREATE TABLE IF NOT EXISTS sensordaten (sensordaten_id INTEGER PRIMARY KEY AUTOINCREMENT, sensor_id INTEGER, 
-                    sensor_type TEXT, location INTEGER, lat REAL, lon REAL, timestamp DATETIME, temperature REAL, humidity REAL);''')
+
+  if (isinstance(csv_lines[0], Sensor_Temperature_Data)):
+    cursor.execute(f'''CREATE TABLE IF NOT EXISTS temperaturdaten (sensordaten_id INTEGER PRIMARY KEY AUTOINCREMENT, sensor_id INTEGER, 
+                      sensor_type TEXT, location INTEGER, lat REAL, lon REAL, timestamp DATETIME, temperature REAL, humidity REAL);''')    
+    for line in Sensor_Temperature_Data_List(csv_lines):
+      cursor.execute(f'''INSERT INTO temperaturdaten (sensor_id, sensor_type, location, lat, lon, timestamp, temperature, humidity) VALUES
+                      ({line.sensor_id}, \'{line.sensor_type}\', {line.location}, {line.lat}, {line.lon}, \'{line.timestamp}\', {line.temperature}, {line.humidity})''')
+  else:
+    cursor.execute(f'''CREATE TABLE IF NOT EXISTS feinstaubdaten (sensordaten_id INTEGER PRIMARY KEY AUTOINCREMENT, sensor_id INTEGER, 
+                      sensor_type TEXT, location INTEGER, lat REAL, lon REAL, timestamp DATETIME, P1 REAL, durP1 REAL, ratioP1 REAL, P2 REAL, durP2 REAL, ratioP2 REAL);''')    
+    for line in Sensor_Feinstaub_Data_List(csv_lines):
+      cursor.execute(f'''INSERT INTO feinstaubdaten (sensor_id, sensor_type, location, lat, lon, timestamp, P1, durP1, ratioP1, P2, durP2, ratioP2) VALUES
+                      ({line.sensor_id}, \'{line.sensor_type}\', {line.location}, {line.lat}, {line.lon}, \'{line.timestamp}\', {line.P1}, {line.durP1}, {line.ratioP1}, {line.P2}, {line.durP2}, {line.ratioP2})''')
   
-  for line in csv_lines:
-    cursor.execute(f'''INSERT INTO sensordaten (sensor_id, sensor_type, location, lat, lon, timestamp, temperature, humidity) VALUES
-                    ({line.sensor_id}, \'{line.sensor_type}\', {line.location}, {line.lat}, {line.lon}, \'{line.timestamp}\', {line.temperature}, {line.humidity})''')
+
   conn.commit()
   conn.close()
 
-def fetch_csv_from_db(csv_lines : list[Sensor_Temperature_Data]):
+def fetch_csv_from_db(csv_lines : Sensor_Data_List):
+    table_name = 'temperaturdaten' if isinstance(csv_lines[0], Sensor_Temperature_Data) else 'feinstaubdaten'
     condition = ''
     if csv_lines != []:
       csv_line = csv_lines[0]
@@ -130,10 +140,13 @@ def fetch_csv_from_db(csv_lines : list[Sensor_Temperature_Data]):
     conn = sqlite3.connect('sensordaten.db')
     cursor = conn.cursor()
     # check if table exists
-    listOfTables = cursor.execute(f'SELECT name FROM sqlite_master WHERE type=\'table\' AND name=\'sensordaten\';').fetchall()
+    listOfTables = cursor.execute(f'SELECT name FROM sqlite_master WHERE type=\'table\' AND name=\'{table_name}\';').fetchall()
     if listOfTables != []:
-      cursor.execute(f'SELECT * FROM sensordaten sd{condition};')
-      csv_lines = cursor.fetchall()
+      cursor.execute(f'SELECT * FROM {table_name} sd{condition};')
+      if (isinstance(csv_lines[0], Sensor_Temperature_Data)):
+        csv_lines = Sensor_Temperature_Data_List(cursor.fetchall())
+      else:
+        csv_lines = Sensor_Feinstaub_Data_List(cursor.fetchall())
       conn.close() 
       return True
     else:
@@ -144,17 +157,21 @@ def read_csv(file_name : str):
   data = DictReader(open(file_name), delimiter=";")
   print(f'{data.line_num:>5}: {data.fieldnames}\n')
 
-  for line in data:
-    print(f"{(data.line_num-1):>5}: {line['timestamp']} {line['temperature']:>6}°c")
-    yield Sensor_Temperature_Data().assign(line)
+  if (list(data.fieldnames or []).count("temperature") > 0): 
+    for line in data:
+      yield Sensor_Temperature_Data().assign(line)
+  else:
+    for line in data:
+      yield Sensor_Feinstaub_Data().assign(line)
 
-def give_csv_data(file_name) -> Sensor_Temperature_Data_List:
-  data_list = Sensor_Temperature_Data_List(read_csv(file_name))
+
+def give_csv_data(file_name) -> Sensor_Data_List:
+  data_list = Sensor_Data_List(read_csv(file_name))
   # check if already exist in db
   if not fetch_csv_from_db(data_list):
     insert_csv_into_db(data_list)
   data_list.assign_calculated()
-  return data_list
+  return Sensor_Data_List(data_list)
 
 
 
@@ -165,35 +182,27 @@ tkFenster.geometry('650x550')
 
 # Funktion für den Button, die eine CSV Datei runterlädt
 def button_download_pressed():
+  start_str = txtDateStart.get('1.0', END+"-1c")
+  (dt_s_d, dt_s_m, dt_s_y) = start_str.split('.')
+  end_str = txtDateEnd.get('1.0', END+"-1c")
+  (dt_e_d, dt_e_m, dt_e_y) = end_str.split('.')
+
   use_temperature_sensor = False
   if (use_temperature_sensor):
     # create url list
-    start_str = txtDateStart.get('1.0', END+"-1c")
-    (dt_s_d, dt_s_m, dt_s_y) = start_str.split('.')
-    end_str = txtDateEnd.get('1.0', END+"-1c")
-    (dt_e_d, dt_e_m, dt_e_y) = end_str.split('.')
+    csv_list = Sensor_Temperature_Data_List([])
     url_list = generate_download_urls('dht22', 3705, [int(dt_s_d), int(dt_s_m), int(dt_s_y)], [int(dt_e_d), int(dt_e_m), int(dt_e_y)])
-
-    temps = Sensor_Temperature_Data_List([])
     for url in url_list:
       file_name = download_file(url)
-      temps = temps + give_csv_data(file_name)
-    display_temps(temps,f"[from {len(url_list)} files]")
-
+      csv_list = csv_list + give_csv_data(file_name)
+    display_temps(csv_list,f"[from {len(url_list)} files]")
   else:
-    # create url list
-    start_str = txtDateStart.get('1.0', END+"-1c")
-    (dt_s_d, dt_s_m, dt_s_y) = start_str.split('.')
-    end_str = txtDateEnd.get('1.0', END+"-1c")
-    (dt_e_d, dt_e_m, dt_e_y) = end_str.split('.')
+    csv_list = Sensor_Feinstaub_Data_List([])
     url_list = generate_download_urls('sds011', 13660, [int(dt_s_d), int(dt_s_m), int(dt_s_y)], [int(dt_e_d), int(dt_e_m), int(dt_e_y)])
-
-    fstaub = Sensor_Feinstaub_Data_List([])
     for url in url_list:
       file_name = download_file(url)
-      fstaub = fstaub + give_csv_data(file_name)
-    display_feinstaub(temps,f"[from {len(url_list)} files]")
-
+      csv_list = csv_list + give_csv_data(file_name)
+    display_feinstaub(csv_list,f"[from {len(url_list)} files]")
 
 
 
@@ -211,6 +220,7 @@ def display_feinstaub(fstaub : Sensor_Feinstaub_Data_List,a_text=""):
 Mindestwert P1:   {fstaub.P1min:>6}°c
 Durchschnitt P1:   {fstaub.P1avg:>6.2f}°c
 Differenz P1:         {fstaub.P1diff:>6.2f}°c
+
 Höchstwert P2:    {fstaub.P2max:>6}°c
 Mindestwert P2:   {fstaub.P2min:>6}°c
 Durchschnitt P2:   {fstaub.P2avg:>6.2f}°c
@@ -221,7 +231,7 @@ Differenz P2:         {fstaub.P2diff:>6.2f}°c''')
   fig = Figure(figsize = (5, 5), dpi=90)
   plot1 = fig.add_subplot()
   plot1.set_xticklabels(list(map(lambda t: t.timestamp.strftime('%H:%M'), fstaub)))
-  plot1.set_ylabel('Feinstaubwerte in xxxxx')
+  plot1.set_ylabel('Feinstaubwerte in μg/m³')
   if datumStart != datumEnd:
     plot1.set_title(f'Feinstaubwerte im Zeitraum von {datumStart} bis {datumEnd}')
   else:
@@ -237,10 +247,14 @@ Differenz P2:         {fstaub.P2diff:>6.2f}°c''')
   p2_max_y = fstaub.P2max
   p2_min_x = fstaub.P2min_index
   p2_min_y = fstaub.P2min
-  plot1.plot(p1_min_x,p1_min_y,'o')
-  plot1.plot(p1_max_x,p1_max_y,'o')
-  plot1.plot(p2_min_x,p2_min_y,'o')
-  plot1.plot(p2_max_x,p2_max_y,'o')
+
+  show_extremes = True
+  if (show_extremes):
+    plot1.plot(p1_min_x,p1_min_y,'o')
+    plot1.plot(p1_max_x,p1_max_y,'o')
+    plot1.plot(p2_min_x,p2_min_y,'o')
+    plot1.plot(p2_max_x,p2_max_y,'o')
+
   if p1_max_x > mid: 
     plot1.hlines(y=p1_max_y, xmin=0, xmax=p1_max_x, linestyles='dashed')
     plot1.text(0, p1_max_y+0.1, f'{fstaub.P1max}°c', style='italic')
@@ -266,7 +280,8 @@ Differenz P2:         {fstaub.P2diff:>6.2f}°c''')
     plot1.hlines(y=p2_min_y, xmin=p2_min_x, xmax=max_w, linestyles='dashed')
     plot1.text(520, p2_min_y+0.1, f'{fstaub.P2min}°c', style='italic')
 
-  plot1.plot(list(map(lambda x: x.temperature, fstaub)))
+  plot1.plot(list(map(lambda x: x.P1, fstaub)))
+  plot1.plot(list(map(lambda x: x.P2, fstaub)))
 
   # creating the Tkinter canvas containing the Matplotlib figure 
   canvas = FigureCanvasTkAgg(fig, master=tkFenster) 
@@ -298,24 +313,29 @@ Differenz:         {temps.diff:>6.2f}°c''')
   else:
     plot1.set_title(f'Temperaturwerte am {datumStart}')
 
-  mid = len(temps) / 2
+  max_w = len(fstaub)
+  mid = max_w / 2
   max_x = temps.max_index
   max_y = temps.max
   min_x = temps.min_index
   min_y = temps.min
-  plot1.plot(min_x,min_y,'o')
-  plot1.plot(max_x,max_y,'o')
+
+  show_extremes = True
+  if (show_extremes):
+    plot1.plot(min_x,min_y,'o')
+    plot1.plot(max_x,max_y,'o')
+
   if max_x > mid: 
     plot1.hlines(y=max_y, xmin=0, xmax=max_x, linestyles='dashed')
     plot1.text(0, max_y+0.1, f'{temps.max}°c', style='italic')
   else:
-    plot1.hlines(y=max_y, xmin=max_x, xmax=600, linestyles='dashed')
+    plot1.hlines(y=max_y, xmin=max_x, xmax=max_w, linestyles='dashed')
     plot1.text(520, max_y+0.1, f'{temps.max}°c', style='italic')
   if min_x > mid: 
     plot1.hlines(y=min_y, xmin=0, xmax=min_x, linestyles='dashed')
     plot1.text(0, min_y+0.1, f'{temps.min}°c', style='italic')
   else:
-    plot1.hlines(y=min_y, xmin=min_x, xmax=600, linestyles='dashed')
+    plot1.hlines(y=min_y, xmin=min_x, xmax=max_w, linestyles='dashed')
     plot1.text(520, min_y+0.1, f'{temps.min}°c', style='italic')
 
   plot1.plot(list(map(lambda x: x.temperature, temps)))
