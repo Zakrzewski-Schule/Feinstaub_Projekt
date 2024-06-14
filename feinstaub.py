@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D, lineStyles
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk) 
-from Sensor_data import (Sensor_Data, Sensor_Temperature_Data, Sensor_Temperature_Data_List)
+from Sensor_data import (Sensor_Data, Sensor_Temperature_Data, Sensor_Temperature_Data_List, Sensor_Feinstaub_Data, Sensor_Feinstaub_Data_List)
 
 
 def cls():
@@ -78,8 +78,9 @@ def generate_download_urls(a_sensor_type, a_sensor_id, a_start, a_end):
 
 def extract_file(datei_name):
   with gzip.open(datei_name, 'rb') as f_in:
-    with open(datei_name[0,3], 'wb') as f_out:
+    with open(datei_name[0:-3], 'wb') as f_out:
       shutil.copyfileobj(f_in, f_out)
+  os.remove(datei_name)   # delete archive after extracting
 
 def check_url_exists(url):
   opener = urllib2.OpenerDirector()
@@ -92,6 +93,15 @@ def check_url_exists(url):
     pass
   res.close()
   return res.code in [200, 301]
+
+def download_file(url):
+  file_name  = url.split("/")[-1]
+  file_ext = file_name.split(".")[-1]
+  (r_str, _) = urllib2.urlretrieve(url, file_name)
+  if (file_ext == "gz"):
+    extract_file(r_str)
+    file_name = r_str[0:-3]
+  return file_name
 
 #print(generate_download_urls('dht22', 3660, [26, 4, 2021], [26, 4, 2021]))
 
@@ -138,7 +148,7 @@ def read_csv(file_name : str):
     print(f"{(data.line_num-1):>5}: {line['timestamp']} {line['temperature']:>6}°c")
     yield Sensor_Temperature_Data().assign(line)
 
-def give_csv_data(file_name) -> list[Sensor_Temperature_Data]:
+def give_csv_data(file_name) -> Sensor_Temperature_Data_List:
   data_list = Sensor_Temperature_Data_List(read_csv(file_name))
   # check if already exist in db
   if not fetch_csv_from_db(data_list):
@@ -155,19 +165,123 @@ tkFenster.geometry('650x550')
 
 # Funktion für den Button, die eine CSV Datei runterlädt
 def button_download_pressed():
-  start_str = txtDateStart.get('1.0', END+"-1c")
-  (dt_s_d, dt_s_m, dt_s_y) = start_str.split('.')
-  end_str = txtDateEnd.get('1.0', END+"-1c")
-  (dt_e_d, dt_e_m, dt_e_y) = end_str.split('.')
-  generate_download_urls('dht22', 3660, [int(dt_s_d), int(dt_s_m), int(dt_s_y)], [int(dt_e_d), int(dt_e_m), int(dt_e_y)])
-  pass
+  use_temperature_sensor = False
+  if (use_temperature_sensor):
+    # create url list
+    start_str = txtDateStart.get('1.0', END+"-1c")
+    (dt_s_d, dt_s_m, dt_s_y) = start_str.split('.')
+    end_str = txtDateEnd.get('1.0', END+"-1c")
+    (dt_e_d, dt_e_m, dt_e_y) = end_str.split('.')
+    url_list = generate_download_urls('dht22', 3705, [int(dt_s_d), int(dt_s_m), int(dt_s_y)], [int(dt_e_d), int(dt_e_m), int(dt_e_y)])
+
+    temps = Sensor_Temperature_Data_List([])
+    for url in url_list:
+      file_name = download_file(url)
+      temps = temps + give_csv_data(file_name)
+    display_temps(temps,f"[from {len(url_list)} files]")
+
+  else:
+    # create url list
+    start_str = txtDateStart.get('1.0', END+"-1c")
+    (dt_s_d, dt_s_m, dt_s_y) = start_str.split('.')
+    end_str = txtDateEnd.get('1.0', END+"-1c")
+    (dt_e_d, dt_e_m, dt_e_y) = end_str.split('.')
+    url_list = generate_download_urls('sds011', 13660, [int(dt_s_d), int(dt_s_m), int(dt_s_y)], [int(dt_e_d), int(dt_e_m), int(dt_e_y)])
+
+    fstaub = Sensor_Feinstaub_Data_List([])
+    for url in url_list:
+      file_name = download_file(url)
+      fstaub = fstaub + give_csv_data(file_name)
+    display_feinstaub(temps,f"[from {len(url_list)} files]")
+
+
+
 
 # Funktion für den Button, die eine Datei öffnet und den Dateinamen in das Label schreibt
 def button_pressed():
   file = fd.askopenfilename()
   temps = give_csv_data(file)
+  display_temps(temps, file)
 
-  lblFilename.configure(text=file)
+
+
+def display_feinstaub(fstaub : Sensor_Feinstaub_Data_List,a_text=""):
+  lblFilename.configure(text=a_text)
+  lblCSV.configure(text= f'''Höchstwert P1:    {fstaub.P1max:>6}°c
+Mindestwert P1:   {fstaub.P1min:>6}°c
+Durchschnitt P1:   {fstaub.P1avg:>6.2f}°c
+Differenz P1:         {fstaub.P1diff:>6.2f}°c
+Höchstwert P2:    {fstaub.P2max:>6}°c
+Mindestwert P2:   {fstaub.P2min:>6}°c
+Durchschnitt P2:   {fstaub.P2avg:>6.2f}°c
+Differenz P2:         {fstaub.P2diff:>6.2f}°c''')
+  datumStart = fstaub[0].timestamp.strftime('%d.%m.%Y')
+  datumEnd = fstaub[-1].timestamp.strftime('%d.%m.%Y')
+
+  fig = Figure(figsize = (5, 5), dpi=90)
+  plot1 = fig.add_subplot()
+  plot1.set_xticklabels(list(map(lambda t: t.timestamp.strftime('%H:%M'), fstaub)))
+  plot1.set_ylabel('Feinstaubwerte in xxxxx')
+  if datumStart != datumEnd:
+    plot1.set_title(f'Feinstaubwerte im Zeitraum von {datumStart} bis {datumEnd}')
+  else:
+    plot1.set_title(f'Feinstaubwerte am {datumStart}')
+
+  max_w = len(fstaub)
+  mid = max_w / 2
+  p1_max_x = fstaub.P1max_index
+  p1_max_y = fstaub.P1max
+  p1_min_x = fstaub.P1min_index
+  p1_min_y = fstaub.P1min
+  p2_max_x = fstaub.P2max_index
+  p2_max_y = fstaub.P2max
+  p2_min_x = fstaub.P2min_index
+  p2_min_y = fstaub.P2min
+  plot1.plot(p1_min_x,p1_min_y,'o')
+  plot1.plot(p1_max_x,p1_max_y,'o')
+  plot1.plot(p2_min_x,p2_min_y,'o')
+  plot1.plot(p2_max_x,p2_max_y,'o')
+  if p1_max_x > mid: 
+    plot1.hlines(y=p1_max_y, xmin=0, xmax=p1_max_x, linestyles='dashed')
+    plot1.text(0, p1_max_y+0.1, f'{fstaub.P1max}°c', style='italic')
+  else:
+    plot1.hlines(y=p1_max_y, xmin=p1_max_x, xmax=max_w, linestyles='dashed')
+    plot1.text(520, p1_max_y+0.1, f'{fstaub.P1max}°c', style='italic')
+  if p1_min_x > mid: 
+    plot1.hlines(y=p1_min_y, xmin=0, xmax=p1_min_x, linestyles='dashed')
+    plot1.text(0, p1_min_y+0.1, f'{fstaub.P1min}°c', style='italic')
+  else:
+    plot1.hlines(y=p1_min_y, xmin=p1_min_x, xmax=max_w, linestyles='dashed')
+    plot1.text(520, p1_min_y+0.1, f'{fstaub.P1min}°c', style='italic')
+  if p2_max_x > mid: 
+    plot1.hlines(y=p2_max_y, xmin=0, xmax=p2_max_x, linestyles='dashed')
+    plot1.text(0, p2_max_y+0.1, f'{fstaub.P2max}°c', style='italic')
+  else:
+    plot1.hlines(y=p2_max_y, xmin=p2_max_x, xmax=max_w, linestyles='dashed')
+    plot1.text(520, p2_max_y+0.1, f'{fstaub.P2max}°c', style='italic')
+  if p2_min_x > mid: 
+    plot1.hlines(y=p2_min_y, xmin=0, xmax=p2_min_x, linestyles='dashed')
+    plot1.text(0, p2_min_y+0.1, f'{fstaub.P2min}°c', style='italic')
+  else:
+    plot1.hlines(y=p2_min_y, xmin=p2_min_x, xmax=max_w, linestyles='dashed')
+    plot1.text(520, p2_min_y+0.1, f'{fstaub.P2min}°c', style='italic')
+
+  plot1.plot(list(map(lambda x: x.temperature, fstaub)))
+
+  # creating the Tkinter canvas containing the Matplotlib figure 
+  canvas = FigureCanvasTkAgg(fig, master=tkFenster) 
+  canvas.draw() 
+  canvas.get_tk_widget().pack() 
+
+  # creating the Matplotlib toolbar 
+  toolbar = NavigationToolbar2Tk(canvas, tkFenster) 
+  toolbar.update() 
+  canvas.get_tk_widget().pack(side='bottom', after=toolbar,anchor='e',padx=5)
+
+
+
+def display_temps(temps : Sensor_Temperature_Data_List,a_text=""):
+  lblFilename.configure(text=a_text)
   lblCSV.configure(text= f'''Höchsttemp.:    {temps.max:>6}°c
 Mindesttemp.:   {temps.min:>6}°c
 Durchschnitt:   {temps.avg:>6.2f}°c
@@ -180,23 +294,24 @@ Differenz:         {temps.diff:>6.2f}°c''')
   plot1.set_xticklabels(list(map(lambda t: t.timestamp.strftime('%H:%M'), temps)))
   plot1.set_ylabel('Temperatur in °c')
   if datumStart != datumEnd:
-    plot1.set_title(f'Feinstaubwerte im Zeitraum {datumStart} bis {datumEnd}')
+    plot1.set_title(f'Temperaturwerte im Zeitraum von {datumStart} bis {datumEnd}')
   else:
-    plot1.set_title(f'Feinstaubwerte am {datumStart}')
+    plot1.set_title(f'Temperaturwerte am {datumStart}')
 
+  mid = len(temps) / 2
   max_x = temps.max_index
   max_y = temps.max
   min_x = temps.min_index
   min_y = temps.min
   plot1.plot(min_x,min_y,'o')
   plot1.plot(max_x,max_y,'o')
-  if max_x > 300: 
+  if max_x > mid: 
     plot1.hlines(y=max_y, xmin=0, xmax=max_x, linestyles='dashed')
     plot1.text(0, max_y+0.1, f'{temps.max}°c', style='italic')
   else:
     plot1.hlines(y=max_y, xmin=max_x, xmax=600, linestyles='dashed')
     plot1.text(520, max_y+0.1, f'{temps.max}°c', style='italic')
-  if min_x > 300: 
+  if min_x > mid: 
     plot1.hlines(y=min_y, xmin=0, xmax=min_x, linestyles='dashed')
     plot1.text(0, min_y+0.1, f'{temps.min}°c', style='italic')
   else:

@@ -75,13 +75,20 @@ class Sensor_Temperature_Data_List(list[Sensor_Temperature_Data]):
       super().__setitem__(index, item)
   
   def assign_calculated(self):
+    if (len(self) == 0):
+      return
     temps = list(map(lambda x: x.temperature, self))
-    self.min = min(temps)
+    self.min = min(temps) 
     self.max = max(temps)
     self.avg = (sum(temps) / len(temps))
     self.diff = (max(temps) - min(temps))
     self.min_index = temps.index(self.min)
     self.max_index = temps.index(self.max)
+
+  def __add__(self, value):
+    super().__iadd__(value)
+    self.assign_calculated()
+    return self
 
 
 
