@@ -28,6 +28,8 @@ days_in_months = [31,28,31,30,31,30,31,31,30,31,30,31]
 is_leap_year = lambda year : (year % 400 == 0 and year % 100 == 0) or (year % 4 == 0 and year % 100 != 0)
 get_days_in_month = lambda month,year : (29 if is_leap_year(year) else 28) if month == 2 else days_in_months[month - 1]
 
+canvas : Canvas
+
 def generate_download_urls(a_sensor_type, a_sensor_id, a_start, a_end):
   url_list = []
   if len(a_start) < 2 or len(a_end) < 1: return []
@@ -184,7 +186,7 @@ tkFenster.geometry('650x550')
 def button_download_pressed():
   start_str = txtDateStart.get('1.0', END+"-1c")
   (dt_s_d, dt_s_m, dt_s_y) = start_str.split('.')
-  end_str = txtDateEnd.get('1.0', END+"-1c")
+  end_str = txtDateEnd.get('1.0', END+"-1c") or start_str
   (dt_e_d, dt_e_m, dt_e_y) = end_str.split('.')
 
   use_temperature_sensor = False
@@ -195,14 +197,14 @@ def button_download_pressed():
     for url in url_list:
       file_name = download_file(url)
       csv_list = csv_list + give_csv_data(file_name)
-    display_temps(csv_list,f"[from {len(url_list)} files]")
+    display_temps(csv_list,f"[from {len(url_list)} files]" if (len(url_list) > 1) else url_list[0])
   else:
     csv_list = Sensor_Feinstaub_Data_List([])
     url_list = generate_download_urls('sds011', 13660, [int(dt_s_d), int(dt_s_m), int(dt_s_y)], [int(dt_e_d), int(dt_e_m), int(dt_e_y)])
     for url in url_list:
       file_name = download_file(url)
       csv_list = csv_list + give_csv_data(file_name)
-    display_feinstaub(csv_list,f"[from {len(url_list)} files]")
+    display_feinstaub(csv_list,f"[from {len(url_list)} files]" if (len(url_list) > 1) else url_list[0])
 
 
 
@@ -213,18 +215,19 @@ def button_pressed():
   display_temps(temps, file)
 
 
-
 def display_feinstaub(fstaub : Sensor_Feinstaub_Data_List,a_text=""):
   lblFilename.configure(text=a_text)
-  lblCSV.configure(text= f'''Höchstwert P1:    {fstaub.P1max:>6}°c
-Mindestwert P1:   {fstaub.P1min:>6}°c
-Durchschnitt P1:   {fstaub.P1avg:>6.2f}°c
-Differenz P1:         {fstaub.P1diff:>6.2f}°c
+  lblCSV.configure(text= f'''PM 10
+Höchstwert:    {fstaub.P1max:>6} μg/m³
+Mindestwert:   {fstaub.P1min:>6} μg/m³
+Durchschnitt:   {fstaub.P1avg:>6.2f} μg/m³
+Differenz:         {fstaub.P1diff:>6.2f}
 
-Höchstwert P2:    {fstaub.P2max:>6}°c
-Mindestwert P2:   {fstaub.P2min:>6}°c
-Durchschnitt P2:   {fstaub.P2avg:>6.2f}°c
-Differenz P2:         {fstaub.P2diff:>6.2f}°c''')
+PM 2,5
+Höchstwert:    {fstaub.P2max:>6} μg/m³
+Mindestwert:   {fstaub.P2min:>6} μg/m³
+Durchschnitt:   {fstaub.P2avg:>6.2f} μg/m³
+Differenz:         {fstaub.P2diff:>6.2f}''')
   datumStart = fstaub[0].timestamp.strftime('%d.%m.%Y')
   datumEnd = fstaub[-1].timestamp.strftime('%d.%m.%Y')
 
@@ -233,12 +236,13 @@ Differenz P2:         {fstaub.P2diff:>6.2f}°c''')
   plot1.set_xticklabels(list(map(lambda t: t.timestamp.strftime('%H:%M'), fstaub)))
   plot1.set_ylabel('Feinstaubwerte in μg/m³')
   if datumStart != datumEnd:
-    plot1.set_title(f'Feinstaubwerte im Zeitraum von {datumStart} bis {datumEnd}')
+    plot1.set_title(f'Feinstaubwerte\nim Zeitraum von {datumStart} bis {datumEnd}')
   else:
     plot1.set_title(f'Feinstaubwerte am {datumStart}')
 
   max_w = len(fstaub)
   mid = max_w / 2
+  margin_text = max_w - 250
   p1_max_x = fstaub.P1max_index
   p1_max_y = fstaub.P1max
   p1_min_x = fstaub.P1min_index
@@ -260,33 +264,33 @@ Differenz P2:         {fstaub.P2diff:>6.2f}°c''')
     plot1.text(0, p1_max_y+0.1, f'{fstaub.P1max}°c', style='italic')
   else:
     plot1.hlines(y=p1_max_y, xmin=p1_max_x, xmax=max_w, linestyles='dashed')
-    plot1.text(520, p1_max_y+0.1, f'{fstaub.P1max}°c', style='italic')
+    plot1.text(margin_text, p1_max_y+0.1, f'{fstaub.P1max}°c', style='italic')
   if p1_min_x > mid: 
     plot1.hlines(y=p1_min_y, xmin=0, xmax=p1_min_x, linestyles='dashed')
     plot1.text(0, p1_min_y+0.1, f'{fstaub.P1min}°c', style='italic')
   else:
     plot1.hlines(y=p1_min_y, xmin=p1_min_x, xmax=max_w, linestyles='dashed')
-    plot1.text(520, p1_min_y+0.1, f'{fstaub.P1min}°c', style='italic')
+    plot1.text(margin_text, p1_min_y+0.1, f'{fstaub.P1min}°c', style='italic')
   if p2_max_x > mid: 
     plot1.hlines(y=p2_max_y, xmin=0, xmax=p2_max_x, linestyles='dashed')
     plot1.text(0, p2_max_y+0.1, f'{fstaub.P2max}°c', style='italic')
   else:
     plot1.hlines(y=p2_max_y, xmin=p2_max_x, xmax=max_w, linestyles='dashed')
-    plot1.text(520, p2_max_y+0.1, f'{fstaub.P2max}°c', style='italic')
+    plot1.text(margin_text, p2_max_y+0.1, f'{fstaub.P2max}°c', style='italic')
   if p2_min_x > mid: 
     plot1.hlines(y=p2_min_y, xmin=0, xmax=p2_min_x, linestyles='dashed')
     plot1.text(0, p2_min_y+0.1, f'{fstaub.P2min}°c', style='italic')
   else:
     plot1.hlines(y=p2_min_y, xmin=p2_min_x, xmax=max_w, linestyles='dashed')
-    plot1.text(520, p2_min_y+0.1, f'{fstaub.P2min}°c', style='italic')
+    plot1.text(margin_text, p2_min_y+0.1, f'{fstaub.P2min}°c', style='italic')
 
-  plot1.plot(list(map(lambda x: x.P1, fstaub)))
-  plot1.plot(list(map(lambda x: x.P2, fstaub)))
+  pm10 = plot1.plot(list(map(lambda x: x.P1, fstaub)),label='PM 10',color='green')
+  pm25 = plot1.plot(list(map(lambda x: x.P2, fstaub)),label='PM 2,5',color='blue')
+  plot1.legend()
 
   # creating the Tkinter canvas containing the Matplotlib figure 
   canvas = FigureCanvasTkAgg(fig, master=tkFenster) 
   canvas.draw() 
-  canvas.get_tk_widget().pack() 
 
   # creating the Matplotlib toolbar 
   toolbar = NavigationToolbar2Tk(canvas, tkFenster) 
@@ -309,12 +313,13 @@ Differenz:         {temps.diff:>6.2f}°c''')
   plot1.set_xticklabels(list(map(lambda t: t.timestamp.strftime('%H:%M'), temps)))
   plot1.set_ylabel('Temperatur in °c')
   if datumStart != datumEnd:
-    plot1.set_title(f'Temperaturwerte im Zeitraum von {datumStart} bis {datumEnd}')
+    plot1.set_title(f'Temperaturwerte\nim Zeitraum von {datumStart} bis {datumEnd}')
   else:
     plot1.set_title(f'Temperaturwerte am {datumStart}')
 
-  max_w = len(fstaub)
+  max_w = len(temps)
   mid = max_w / 2
+  margin_text = max_w - 250
   max_x = temps.max_index
   max_y = temps.max
   min_x = temps.min_index
@@ -330,20 +335,19 @@ Differenz:         {temps.diff:>6.2f}°c''')
     plot1.text(0, max_y+0.1, f'{temps.max}°c', style='italic')
   else:
     plot1.hlines(y=max_y, xmin=max_x, xmax=max_w, linestyles='dashed')
-    plot1.text(520, max_y+0.1, f'{temps.max}°c', style='italic')
+    plot1.text(margin_text, max_y+0.1, f'{temps.max}°c', style='italic')
   if min_x > mid: 
     plot1.hlines(y=min_y, xmin=0, xmax=min_x, linestyles='dashed')
     plot1.text(0, min_y+0.1, f'{temps.min}°c', style='italic')
   else:
     plot1.hlines(y=min_y, xmin=min_x, xmax=max_w, linestyles='dashed')
-    plot1.text(520, min_y+0.1, f'{temps.min}°c', style='italic')
+    plot1.text(margin_text, min_y+0.1, f'{temps.min}°c', style='italic')
 
-  plot1.plot(list(map(lambda x: x.temperature, temps)))
+  plot1.plot(list(map(lambda x: x.temperature, temps)),color='blue')
 
   # creating the Tkinter canvas containing the Matplotlib figure 
   canvas = FigureCanvasTkAgg(fig, master=tkFenster) 
   canvas.draw() 
-  canvas.get_tk_widget().pack() 
 
   # creating the Matplotlib toolbar 
   toolbar = NavigationToolbar2Tk(canvas, tkFenster) 
