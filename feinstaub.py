@@ -321,7 +321,6 @@ Differenz:         {temps.diff:>6.2f}°c''')
   datumStart = temps[0].timestamp.strftime('%d.%m.%Y')
   datumEnd = temps[-1].timestamp.strftime('%d.%m.%Y')
 
-  fig = Figure(figsize = (5, 5), dpi=90)
   plot1 = fig.add_subplot()
   plot1.set_xticklabels(list(map(lambda t: t.timestamp.strftime('%H:%M'), temps)))
   plot1.set_ylabel('Temperatur in °c')
