@@ -217,12 +217,6 @@ def button_pressed():
   display(csv_list, file)
 
 
-def button_test_pressed():
-  extremes[0].pop()
-  canvas.draw()
-  pass
-
-
 def clear():
   canvas.figure.clear()
   canvas.draw()
@@ -399,9 +393,6 @@ txtDateEnd.place(x=110, y=160, width=100,height=20)
 
 btnDownloadCSV = Button(master=tkFenster, text='CSV runterladen', command=button_download_pressed)
 btnDownloadCSV.place(x=5, y=180, height=20)
-
-btnDownloadCSV = Button(master=tkFenster, text='Test', command=button_test_pressed)
-btnDownloadCSV.place(x=5, y=220, height=20)
 
 extremes : list[list[Line2D]] = []
 fig = Figure(figsize = (5, 5), dpi=90)
