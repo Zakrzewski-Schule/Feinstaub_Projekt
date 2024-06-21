@@ -81,9 +81,11 @@ class Sensor_Temperature_Data_List(Sensor_Data_List):
     self.min_index = 0
     self.max_index = 0
     super().__init__(item for item in iterable)
+    if (len(iterable) > 0):
+      self.assign_calculated()
 
   def __setitem__(self, index, item):
-      super().__setitem__(index, item)
+    super().__setitem__(index, item)
   
   def assign_calculated(self):
     if (len(self) == 0):
@@ -112,7 +114,10 @@ class Sensor_Feinstaub_Data_List(Sensor_Data_List):
     self.P2diff = 0.0
     self.P2min_index = 0
     self.P2max_index = 0
-    super().__init__(item for item in iterable)
+    for item in iterable:
+      super().__init__(item for item in iterable)
+    if (len(iterable) > 0):
+      self.assign_calculated()
 
   def __setitem__(self, index, item):
       super().__setitem__(index, item)
